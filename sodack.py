@@ -459,12 +459,17 @@ class ADB_conector(QDialog):
 		# Cargar la plantilla UI.
 		uic.loadUi("Templates/adb.ui", self)
 		self.setWindowTitle("Connect to ADB Device")
-		self.setMinimumSize(800, 600)
-		self.setMaximumSize(800, 600)
+		self.setMinimumSize(950, 600)
+		self.setMaximumSize(950, 600)
+		self.filepath.hide()
+		self.startshot.hide()
 		# Agregar funciones a los botones.
 		self.connect_adb.clicked.connect(self.conexion)
+		self.disconnect_adb.clicked.connect(self.disconnect)
 		# Mostrar los dispositivos conectados.
 		self.show_devices.clicked.connect(self.show_adb_devices)
+		# Tomar captura de pantalla al dispositivo.
+		self.screenshot.clicked.connect(self.take_screenshot)
 
 	def conexion(self):
 		# chequear si el campo de la IP esta vacio.
@@ -474,23 +479,47 @@ class ADB_conector(QDialog):
 			self.label.setText("El campo de la IP no puede estar vacio!")
 		elif self.adb_ip.text() and self.adb_port.text() == "":
 			self.label.setText("El campo del puerto ADB no puede estar vacio!")
-		elif len(self.label.text()) < 8:
-			self.label.setText("La longitud de la direccion es incorrecta!")
+		elif len(self.adb_ip.text()) < 8:
+			self.label.setText("La longitud de la direccion IP es incorrecta!")
 		else:
 			self.label.clear()
-			self.textBrowser.setStyleSheet('color: green')
-			self.textBrowser.setText("Conectando...")
+			self.label.setStyleSheet('color: lightgreen')
+			self.label.setText("Conectando...")
 			sleep(3)
 			# Intentar la conexion al dispositivo.
 			try:
-				self.conectar = popen("adb.exe connect {}:{}".format(self.adb_ip.text(), self.adb_port.text()))
+				self.conectar = popen("adb.exe connect {}:5555".format(self.adb_ip.text()))
 				self.textBrowser.setStyleSheet('color: lightgreen;')
-				self.textBrowser.setText("Conexion Exitosa!")
-				sleep(2)
-				self.textBrowser.setText(self.conectar.text())
-			except Exception as error:
+				self.label.setText("Conexion Exitosa!")
+				self.textBrowser.setText(self.conectar.read())
+			except Exception as adb_error:
 				self.textBrowser.setStyleSheet('color: red;')
-				self.textBrowser.setText("Se ha producido un error al conectar!")
+				self.textBrowser.setText("Error al conectar con el Dispositivo!")
+
+
+	def disconnect(self):
+		# Desconectar dispositivos adb.
+		if self.adb_ip.text() == "" and self.adb_port.text() == "":
+			self.label.setText("Los campos no pueden estar vacios!")
+		elif self.adb_ip.text() == "" and self.adb_port.text():
+			self.label.setText("El campo de la IP no puede estar vacio!")
+		elif self.adb_ip.text() and self.adb_port.text() == "":
+			self.label.setText("El campo del puerto ADB no puede estar vacio!")
+		elif len(self.adb_ip.text()) < 8:
+			self.label.setText("La longitud de la direccion IP es incorrecta!")
+		else:
+			try:
+				self.label.clear()
+				# Iniciar la desconexion de un dispositivo.
+				self.textBrowser.setStyleSheet('color: red')
+				self.textBrowser.setText("Asegurate que tengas dispositivos conectados primero...")
+				sleep(2)
+				self.textBrowser.setText("Desconectando...")
+				self.desconectar = popen("adb.exe disconnect {}:5555".format(self.adb_ip.text()))
+				self.label.setText("Dispositivo desconectado!")
+				self.textBrowser.setText(self.desconectar.read())
+			except Exception as disconnect_err:
+				self.label.setText("No se encontraron dispositivos!")
 
 
 	def show_adb_devices(self):
@@ -500,6 +529,22 @@ class ADB_conector(QDialog):
 		self.textBrowser.setText(self.check.read())
 
 
+	def take_screenshot(self):
+		# Tomar una captura de pantalla del telefono.
+		self.filepath.show()
+		self.filepath.setEnabled(True) # Habilitar el linedEdit.
+		self.filepath.setText("Escribe el nombre del archivo aqui!")
+		# Habilitar el boton.
+		self.startshot.show()
+		self.startshot.setEnabled(True)
+		self.startshot.clicked.connect(self.screenshotFile)
+
+	def screenshotFile(self):
+		self.filename = self.filepath.text()
+		self.command = popen("adb.exe shell screencap -p /sdcard/{}.png".format(self.filename))
+		self.textBrowser.setText(self.command.read())
+		self.out = popen("adb.exe pull /sdcard/{}.png adb/".format(self.filename))
+		self.textBrowser.setText(self.out.read())
 
 
 
